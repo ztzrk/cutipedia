@@ -1,19 +1,13 @@
 <script setup>
 import { computed } from 'vue'
 import {
-  NCard,
-  NGrid,
-  NGi,
   NSelect,
   NSlider,
   NInputNumber,
   NRadioGroup,
   NRadioButton,
-  NSpace,
-  NTag,
   NAlert,
 } from 'naive-ui'
-import { SlidersHorizontal, CalendarRange, Briefcase, Users } from 'lucide-vue-next'
 import { WORK_PATTERNS, EMPLOYEE_STATUSES } from '@/composables/useCutiOptimizer'
 
 const props = defineProps({
@@ -35,13 +29,13 @@ const emit = defineEmits([
 
 const yearOptions = computed(() => {
   const options = props.availableYears.map((y) => ({
-    label: `${y} (SKB Resmi)`,
+    label: `${y} — SKB 3 Menteri Resmi`,
     value: Number(y),
   }))
   const nextYear = Math.max(...props.availableYears.map(Number)) + 1
   if (!props.availableYears.map(Number).includes(nextYear)) {
     options.push({
-      label: `${nextYear} (Belum Rilis)`,
+      label: `${nextYear} — Belum Rilis`,
       value: nextYear,
     })
   }
@@ -50,11 +44,11 @@ const yearOptions = computed(() => {
 
 const employeeStatusOptions = [
   {
-    label: 'Swasta — Cuti Bersama Memotong Jatah',
+    label: 'Swasta — Cuti bersama memotong jatah cuti',
     value: EMPLOYEE_STATUSES.SWASTA_POTONG,
   },
   {
-    label: 'Swasta — Cuti Bersama Tidak Memotong',
+    label: 'Swasta — Cuti bersama tidak memotong',
     value: EMPLOYEE_STATUSES.SWASTA_TIDAK_POTONG,
   },
   {
@@ -70,43 +64,35 @@ function handleQuotaChange(val) {
 </script>
 
 <template>
-  <NCard class="cp-filter-card" :bordered="true" size="medium">
-    <template #header>
-      <NSpace align="center" :size="8">
-        <SlidersHorizontal :size="18" />
-        <span>Profil Kerja &amp; Jatah Cuti</span>
-      </NSpace>
-    </template>
-    <template #header-extra>
-      <NTag v-if="hasOfficialData" type="success" size="small" round>
-        SKB 3 Menteri {{ year }}
-      </NTag>
-      <NTag v-else type="warning" size="small" round>
-        Data {{ year }} Belum Tersedia
-      </NTag>
-    </template>
+  <section class="cp-panel cp-filter-panel" aria-label="Profil kerja dan jatah cuti">
+    <div class="cp-panel-head">
+      <span class="cp-section-kicker">01 / Profil Kerja</span>
+      <span class="cp-status-note" :class="hasOfficialData ? 'is-ok' : 'is-warn'">
+        {{ hasOfficialData ? `Data resmi ${year}` : `SKB ${year} belum rilis` }}
+      </span>
+    </div>
 
-    <NGrid cols="1 s:2 l:4" :x-gap="16" :y-gap="16" responsive="screen">
+    <div class="cp-filter-rows">
       <!-- Tahun -->
-      <NGi>
-        <div class="cp-field-label">
-          <CalendarRange :size="14" />
-          <span>Tahun Kalender</span>
+      <div class="cp-filter-row">
+        <label class="cp-row-label" for="cp-year-select">Tahun kalender</label>
+        <div class="cp-row-control">
+          <NSelect
+            id="cp-year-select"
+            :value="year"
+            :options="yearOptions"
+            @update:value="emit('update:year', $event)"
+          />
         </div>
-        <NSelect
-          :value="year"
-          :options="yearOptions"
-          @update:value="emit('update:year', $event)"
-        />
-      </NGi>
+      </div>
 
       <!-- Sisa Jatah Cuti -->
-      <NGi>
-        <div class="cp-field-label">
-          <span>Sisa Jatah Cuti Tahunan</span>
-          <span class="cp-mono cp-quota-pill">{{ cutiQuota }} hari</span>
+      <div class="cp-filter-row">
+        <div class="cp-row-label-split">
+          <label class="cp-row-label" for="cp-quota-input">Sisa jatah cuti tahunan</label>
+          <span class="cp-mono cp-quota-readout">{{ cutiQuota }} hari</span>
         </div>
-        <div class="cp-quota-control">
+        <div class="cp-row-control cp-quota-control">
           <NSlider
             :value="cutiQuota"
             :min="1"
@@ -116,111 +102,162 @@ function handleQuotaChange(val) {
             @update:value="handleQuotaChange"
           />
           <NInputNumber
+            id="cp-quota-input"
             :value="cutiQuota"
             :min="1"
             :max="24"
             size="small"
-            style="width: 78px"
+            style="width: 82px"
             @update:value="handleQuotaChange"
           />
         </div>
-      </NGi>
+      </div>
 
       <!-- Pola Hari Kerja -->
-      <NGi>
-        <div class="cp-field-label">
-          <Briefcase :size="14" />
-          <span>Pola Hari Kerja</span>
+      <div class="cp-filter-row">
+        <span class="cp-row-label">Pola hari kerja</span>
+        <div class="cp-row-control">
+          <NRadioGroup
+            :value="workPattern"
+            name="work-pattern"
+            style="width: 100%; display: flex"
+            @update:value="emit('update:workPattern', $event)"
+          >
+            <NRadioButton :value="WORK_PATTERNS.FIVE_DAYS" style="flex: 1; text-align: center">
+              5 Hari (Sen–Jum)
+            </NRadioButton>
+            <NRadioButton :value="WORK_PATTERNS.SIX_DAYS" style="flex: 1; text-align: center">
+              6 Hari (Sen–Sab)
+            </NRadioButton>
+          </NRadioGroup>
         </div>
-        <NRadioGroup
-          :value="workPattern"
-          name="work-pattern"
-          style="width: 100%; display: flex"
-          @update:value="emit('update:workPattern', $event)"
-        >
-          <NRadioButton :value="WORK_PATTERNS.FIVE_DAYS" style="flex: 1; text-align: center">
-            5 Hari (Sen–Jum)
-          </NRadioButton>
-          <NRadioButton :value="WORK_PATTERNS.SIX_DAYS" style="flex: 1; text-align: center">
-            6 Hari (Sen–Sab)
-          </NRadioButton>
-        </NRadioGroup>
-      </NGi>
+      </div>
 
-      <!-- Status Pegawai -->
-      <NGi>
-        <div class="cp-field-label">
-          <Users :size="14" />
-          <span>Status Kepegawaian</span>
+      <!-- Status Kepegawaian -->
+      <div class="cp-filter-row">
+        <label class="cp-row-label" for="cp-status-select">Status kepegawaian</label>
+        <div class="cp-row-control">
+          <NSelect
+            id="cp-status-select"
+            :value="employeeStatus"
+            :options="employeeStatusOptions"
+            @update:value="emit('update:employeeStatus', $event)"
+          />
         </div>
-        <NSelect
-          :value="employeeStatus"
-          :options="employeeStatusOptions"
-          @update:value="emit('update:employeeStatus', $event)"
-        />
-      </NGi>
-    </NGrid>
+      </div>
+    </div>
 
-    <!-- Catatan pemotongan cuti bersama -->
-    <div v-if="hasOfficialData && employeeStatus === EMPLOYEE_STATUSES.SWASTA_POTONG" class="cp-alert-wrap">
+    <div
+      v-if="hasOfficialData && employeeStatus === EMPLOYEE_STATUSES.SWASTA_POTONG"
+      class="cp-filter-footnote"
+    >
       <NAlert
         v-if="stats.quotaExceededByCutiBersama"
         type="warning"
         :show-icon="true"
-        title="Sisa cuti habis oleh Cuti Bersama"
+        title="Jatah cuti habis terpotong Cuti Bersama"
       >
-        Tahun {{ year }} memiliki
-        <strong>{{ stats.cutiBersamaDeducted }} hari</strong> Cuti Bersama pada hari kerja,
-        melebihi input jatah cuti Anda (<strong>{{ cutiQuota }} hari</strong>). Sisa cuti bebas
-        untuk saran tambahan adalah <strong>0 hari</strong>.
+        Pada {{ year }}, ada <strong>{{ stats.cutiBersamaDeducted }} hari</strong> Cuti Bersama di
+        hari kerja, melebihi input jatah cuti Anda (<strong>{{ cutiQuota }} hari</strong>). Sisa
+        cuti bebas menjadi <strong>0 hari</strong>.
       </NAlert>
-      <NAlert v-else type="info" :show-icon="true">
-        Sebanyak <strong>{{ stats.cutiBersamaDeducted }} hari</strong> Cuti Bersama otomatis
-        memotong jatah cuti Anda. Tersisa
-        <strong>{{ stats.availableForExtraLeave }} hari</strong> cuti bebas untuk dioptimalkan.
-      </NAlert>
+      <p v-else class="cp-footnote-text">
+        Catatan: <strong>{{ stats.cutiBersamaDeducted }} hari</strong> Cuti Bersama memotong jatah
+        tahunan. Tersisa <strong class="cp-mono">{{ stats.availableForExtraLeave }} hari</strong>
+        cuti bebas untuk dioptimalkan.
+      </p>
     </div>
-  </NCard>
+  </section>
 </template>
 
 <style scoped>
-.cp-filter-card {
-  border-radius: 14px;
+.cp-filter-panel {
+  padding: 16px 18px;
 }
 
-.cp-field-label {
+.cp-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.cp-status-note {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.cp-status-note.is-ok {
+  color: var(--cp-accent);
+}
+
+.cp-status-note.is-warn {
+  color: var(--cp-amber);
+}
+
+.cp-filter-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-filter-row {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--cp-border);
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+
+.cp-filter-row:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.cp-row-label-split {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-row-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--cp-text-muted);
-  margin-bottom: 8px;
+  color: var(--cp-text);
 }
 
-.cp-field-label > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cp-quota-pill {
-  font-size: 12px;
-  font-weight: 700;
+.cp-quota-readout {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--cp-accent);
-  background: var(--cp-accent-soft);
-  padding: 1px 8px;
-  border-radius: 999px;
+}
+
+.cp-row-control {
+  width: 100%;
 }
 
 .cp-quota-control {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-.cp-alert-wrap {
-  margin-top: 16px;
+.cp-filter-footnote {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--cp-border-strong);
+}
+
+.cp-footnote-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cp-text-muted);
+}
+
+.cp-footnote-text strong {
+  color: var(--cp-text);
 }
 </style>

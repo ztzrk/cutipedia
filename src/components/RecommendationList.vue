@@ -1,26 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
-import {
-  NCard,
-  NTag,
-  NSpace,
-  NButton,
-  NEmpty,
-  NCollapse,
-  NCollapseItem,
-  NDivider,
-} from 'naive-ui'
-import {
-  Sparkles,
-  CheckCircle2,
-  Circle,
-  RotateCcw,
-  CalendarSearch,
-  CalendarPlus,
-  ExternalLink,
-  Sun,
-} from 'lucide-vue-next'
+import { NButton, NEmpty } from 'naive-ui'
+import { RotateCcw, CalendarPlus, ArrowRight, ExternalLink, Check } from 'lucide-vue-next'
 import { buildGoogleCalendarUrl } from '@/composables/useCalendarExport'
 
 const props = defineProps({
@@ -38,6 +20,7 @@ const props = defineProps({
 const emit = defineEmits(['toggle-plan', 'reset-optimal', 'focus-date', 'switch-year'])
 
 const filterMode = ref('all') // 'all' | 'selected'
+const showNatural = ref(false)
 
 const selectedSet = computed(() => new Set(props.selectedIds))
 
@@ -65,25 +48,17 @@ function canToggle(opp) {
   if (selectedSet.value.has(opp.id)) return true
   return opp.cutiCount <= props.remainingBudget
 }
-
-function ratioTagType(ratio) {
-  if (ratio >= 5) return 'success'
-  if (ratio >= 3) return 'info'
-  return 'default'
-}
 </script>
 
 <template>
-  <NCard class="cp-rec-card" :bordered="true" size="medium">
-    <template #header>
-      <NSpace align="center" :size="8">
-        <Sparkles :size="18" class="cp-accent-icon" />
-        <span>Rekomendasi Strategi Cuti {{ year }}</span>
-      </NSpace>
-    </template>
+  <section class="cp-panel cp-rec-panel" aria-label="Daftar rekomendasi strategi cuti">
+    <div class="cp-rec-head">
+      <div>
+        <div class="cp-section-kicker">02 / Daftar Rekomendasi {{ year }}</div>
+        <h2 class="cp-rec-title cp-serif">Celah Hari Kejepit &amp; Strategi Cuti</h2>
+      </div>
 
-    <template #header-extra>
-      <NSpace align="center" :size="8">
+      <div class="cp-rec-controls">
         <NButton
           v-if="isCustomized && hasOfficialData"
           size="tiny"
@@ -91,7 +66,7 @@ function ratioTagType(ratio) {
           type="primary"
           @click="emit('reset-optimal')"
         >
-          <template #icon><RotateCcw :size="13" /></template>
+          <template #icon><RotateCcw :size="12" /></template>
           Reset Optimal
         </NButton>
         <NButton
@@ -100,10 +75,10 @@ function ratioTagType(ratio) {
           quaternary
           @click="filterMode = filterMode === 'all' ? 'selected' : 'all'"
         >
-          {{ filterMode === 'all' ? `Terpilih (${selectedIds.length})` : `Semua (${allOpportunities.length})` }}
+          {{ filterMode === 'all' ? `Hanya terpilih (${selectedIds.length})` : `Tampilkan semua (${allOpportunities.length})` }}
         </NButton>
-      </NSpace>
-    </template>
+      </div>
+    </div>
 
     <!-- Empty State jika SKB tahun belum rilis -->
     <div v-if="!hasOfficialData" class="cp-empty-wrap">
@@ -112,7 +87,7 @@ function ratioTagType(ratio) {
         size="large"
       >
         <template #extra>
-          <NSpace justify="center" :size="10">
+          <div class="cp-empty-actions">
             <NButton type="primary" @click="emit('switch-year', latestOfficialYear)">
               Buka Data Resmi {{ latestOfficialYear }}
             </NButton>
@@ -124,20 +99,20 @@ function ratioTagType(ratio) {
               secondary
             >
               <template #icon><ExternalLink :size="14" /></template>
-              Cek Kemenko PMK
+              Situs Kemenko PMK
             </NButton>
-          </NSpace>
+          </div>
         </template>
       </NEmpty>
     </div>
 
-    <!-- Daftar peluang harpitnas -->
+    <!-- Daftar agenda harpitnas -->
     <template v-else>
       <div v-if="displayedOpportunities.length === 0" class="cp-empty-wrap">
         <NEmpty
           :description="
             filterMode === 'selected'
-              ? 'Belum ada paket cuti yang dipilih. Klik Reset Optimal atau tampilkan semua opsi.'
+              ? 'Belum ada paket cuti yang dipilih.'
               : 'Tidak ada celah harpitnas 1–3 hari kerja pada konfigurasi ini.'
           "
         >
@@ -154,11 +129,11 @@ function ratioTagType(ratio) {
         </NEmpty>
       </div>
 
-      <div v-else v-auto-animate class="cp-opp-list">
-        <div
+      <div v-else v-auto-animate class="cp-agenda-list">
+        <article
           v-for="opp in displayedOpportunities"
           :key="opp.id"
-          class="cp-opp-item"
+          class="cp-agenda-row"
           :class="{
             'is-selected': selectedSet.has(opp.id),
             'is-disabled': !canToggle(opp),
@@ -169,197 +144,220 @@ function ratioTagType(ratio) {
           @keydown.enter.prevent="canToggle(opp) && emit('toggle-plan', opp.id)"
           @keydown.space.prevent="canToggle(opp) && emit('toggle-plan', opp.id)"
         >
-          <div class="cp-opp-top">
-            <div class="cp-opp-title-row">
-              <CheckCircle2
-                v-if="selectedSet.has(opp.id)"
-                :size="18"
-                class="cp-check-active"
-              />
-              <Circle v-else :size="18" class="cp-check-idle" />
-              <span class="cp-opp-range">{{ formatDateRange(opp.startDate, opp.endDate) }}</span>
+          <div class="cp-agenda-main">
+            <div class="cp-agenda-check" :class="{ 'is-checked': selectedSet.has(opp.id) }">
+              <Check v-if="selectedSet.has(opp.id)" :size="13" :stroke-width="3" />
             </div>
 
-            <NSpace :size="6" align="center">
-              <NTag :type="ratioTagType(opp.efficiencyRatio)" size="small" round class="cp-mono">
-                Rasio {{ opp.efficiencyRatio }}x
-              </NTag>
-            </NSpace>
+            <div class="cp-agenda-body">
+              <div class="cp-agenda-top">
+                <h3 class="cp-agenda-range">{{ formatDateRange(opp.startDate, opp.endDate) }}</h3>
+                <span class="cp-mono cp-ratio-text">
+                  {{ opp.totalHolidayDays }} hari libur &middot; {{ opp.efficiencyRatio }}&times;
+                </span>
+              </div>
+
+              <p class="cp-agenda-summary">
+                Ambil <strong class="cp-mono">{{ opp.cutiCount }} hari</strong> cuti:
+                <span class="cp-cuti-dates">
+                  {{ opp.cutiDates.map(formatCutiDate).join(', ') }}
+                </span>
+              </p>
+
+              <p v-if="opp.relatedHolidays.length > 0" class="cp-agenda-holidays">
+                {{ opp.relatedHolidays.join(' · ') }}
+              </p>
+
+              <p v-if="!canToggle(opp)" class="cp-agenda-warn">
+                Sisa cuti tidak cukup ({{ remainingBudget }} hari tersisa)
+              </p>
+            </div>
           </div>
 
-          <div class="cp-opp-metrics">
-            <span>
-              Dapat <strong class="cp-mono">{{ opp.totalHolidayDays }} hari</strong> libur
-            </span>
-            <span class="cp-dot">&bull;</span>
-            <span>
-              Ambil <strong class="cp-mono">{{ opp.cutiCount }} hari</strong> cuti:
-              <span class="cp-cuti-dates">
-                {{ opp.cutiDates.map(formatCutiDate).join(', ') }}
-              </span>
-            </span>
+          <div class="cp-agenda-actions">
+            <NButton
+              size="tiny"
+              quaternary
+              tag="a"
+              :href="buildGoogleCalendarUrl(opp)"
+              target="_blank"
+              rel="noopener noreferrer"
+              @click.stop
+            >
+              <template #icon><CalendarPlus :size="13" /></template>
+              Google Calendar
+            </NButton>
+            <NButton
+              size="tiny"
+              quaternary
+              type="primary"
+              @click.stop="emit('focus-date', opp.cutiDates[0])"
+            >
+              Lihat Kalender
+              <template #icon><ArrowRight :size="13" /></template>
+            </NButton>
           </div>
-
-          <div class="cp-opp-bottom">
-            <NSpace :size="4" wrap>
-              <NTag
-                v-for="holidayName in opp.relatedHolidays"
-                :key="holidayName"
-                size="tiny"
-                :bordered="false"
-              >
-                {{ holidayName }}
-              </NTag>
-              <NTag v-if="!canToggle(opp)" size="tiny" type="warning" :bordered="false">
-                Sisa cuti kurang ({{ remainingBudget }} hari tersisa)
-              </NTag>
-            </NSpace>
-
-            <NSpace :size="6" align="center">
-              <NButton
-                size="tiny"
-                quaternary
-                tag="a"
-                :href="buildGoogleCalendarUrl(opp)"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click.stop
-              >
-                <template #icon><CalendarPlus :size="13" /></template>
-                Google Calendar
-              </NButton>
-              <NButton
-                size="tiny"
-                quaternary
-                type="primary"
-                @click.stop="emit('focus-date', opp.cutiDates[0])"
-              >
-                <template #icon><CalendarSearch :size="13" /></template>
-                Lihat Kalender
-              </NButton>
-            </NSpace>
-          </div>
-        </div>
+        </article>
       </div>
 
       <!-- Long weekend alami (0 cuti) -->
-      <template v-if="naturalLongWeekends.length > 0">
-        <NDivider style="margin: 18px 0 12px" />
-        <NCollapse>
-          <NCollapseItem name="natural">
-            <template #header>
-              <NSpace align="center" :size="6">
-                <Sun :size="15" />
-                <span>Long Weekend Alami — Tanpa Cuti ({{ naturalLongWeekends.length }})</span>
-              </NSpace>
-            </template>
-            <div class="cp-natural-list">
-              <div
-                v-for="item in naturalLongWeekends"
-                :key="item.id"
-                class="cp-natural-item"
-                @click="emit('focus-date', item.startDate)"
-              >
-                <div>
-                  <div class="cp-natural-range">
-                    {{ formatDateRange(item.startDate, item.endDate) }}
-                  </div>
-                  <div class="cp-natural-names">
-                    {{ item.holidayNames.join(' + ') }}
-                  </div>
-                </div>
-                <NTag size="small" type="info" round class="cp-mono">
-                  {{ item.totalHolidayDays }} hari
-                </NTag>
+      <div v-if="naturalLongWeekends.length > 0" class="cp-natural-section">
+        <button
+          type="button"
+          class="cp-natural-toggle"
+          @click="showNatural = !showNatural"
+        >
+          <span>Long weekend alami tanpa ambil cuti ({{ naturalLongWeekends.length }})</span>
+          <span class="cp-mono">{{ showNatural ? 'Tutup' : 'Lihat daftar' }}</span>
+        </button>
+
+        <div v-if="showNatural" class="cp-natural-list">
+          <div
+            v-for="item in naturalLongWeekends"
+            :key="item.id"
+            class="cp-natural-row"
+            @click="emit('focus-date', item.startDate)"
+          >
+            <div>
+              <div class="cp-natural-range">
+                {{ formatDateRange(item.startDate, item.endDate) }}
+              </div>
+              <div class="cp-natural-names">
+                {{ item.holidayNames.join(' · ') }}
               </div>
             </div>
-          </NCollapseItem>
-        </NCollapse>
-      </template>
+            <span class="cp-mono cp-natural-days">{{ item.totalHolidayDays }} hari</span>
+          </div>
+        </div>
+      </div>
     </template>
-  </NCard>
+  </section>
 </template>
 
 <style scoped>
-.cp-rec-card {
-  border-radius: 14px;
+.cp-rec-panel {
+  overflow: hidden;
 }
 
-.cp-accent-icon {
-  color: var(--cp-accent);
-}
-
-.cp-empty-wrap {
-  padding: 28px 12px;
-}
-
-.cp-opp-list {
+.cp-rec-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--cp-border);
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.cp-opp-item {
-  border: 1px solid var(--cp-border);
-  background: var(--cp-surface);
-  border-radius: 12px;
-  padding: 12px 14px;
+.cp-rec-title {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.cp-rec-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-empty-wrap {
+  padding: 32px 20px;
+}
+
+.cp-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.cp-agenda-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-agenda-row {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cp-border);
+  border-left: 3px solid transparent;
   cursor: pointer;
-  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.15s ease;
+  transition: background-color 0.14s ease, border-left-color 0.14s ease;
 }
 
-.cp-opp-item:hover:not(.is-disabled) {
-  border-color: var(--cp-accent);
+.cp-agenda-row:last-child {
+  border-bottom: none;
 }
 
-.cp-opp-item.is-selected {
-  border-color: var(--cp-green);
+.cp-agenda-row:hover:not(.is-disabled) {
+  background: var(--cp-surface-muted);
+}
+
+.cp-agenda-row.is-selected {
+  border-left-color: var(--cp-accent);
   background: var(--cp-accent-soft);
 }
 
-.cp-opp-item.is-disabled {
-  opacity: 0.62;
+.cp-agenda-row.is-disabled {
+  opacity: 0.56;
   cursor: not-allowed;
 }
 
-.cp-opp-top {
+.cp-agenda-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cp-agenda-check {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 3px;
+  border: 1.5px solid var(--cp-border-strong);
+  background: var(--cp-surface);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.cp-agenda-check.is-checked {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+.cp-agenda-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-agenda-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
-.cp-opp-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cp-check-active {
-  color: var(--cp-green);
-  flex-shrink: 0;
-}
-
-.cp-check-idle {
-  color: var(--cp-text-muted);
-  flex-shrink: 0;
-}
-
-.cp-opp-range {
-  font-weight: 700;
+.cp-agenda-range {
+  margin: 0;
   font-size: 15px;
+  font-weight: 700;
   color: var(--cp-text);
 }
 
-.cp-opp-metrics {
-  margin-top: 6px;
-  padding-left: 26px;
+.cp-ratio-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cp-accent);
+}
+
+.cp-agenda-summary {
+  margin: 5px 0 0;
   font-size: 13px;
   color: var(--cp-text-muted);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
 }
 
 .cp-cuti-dates {
@@ -367,40 +365,88 @@ function ratioTagType(ratio) {
   font-weight: 600;
 }
 
-.cp-opp-bottom {
+.cp-agenda-holidays {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--cp-text-muted);
+}
+
+.cp-agenda-warn {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cp-amber);
+}
+
+.cp-agenda-actions {
   margin-top: 10px;
-  padding-left: 26px;
+  padding-left: 30px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.cp-natural-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.cp-natural-section {
+  border-top: 1px solid var(--cp-border);
+  background: var(--cp-surface-muted);
 }
 
-.cp-natural-item {
+.cp-natural-toggle {
+  width: 100%;
+  padding: 12px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--cp-text);
+  font-family: var(--cp-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.cp-natural-toggle .cp-mono {
+  font-size: 12px;
+  color: var(--cp-accent);
+}
+
+.cp-natural-list {
+  padding: 0 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-natural-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--cp-surface-muted);
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  background: var(--cp-surface);
   cursor: pointer;
 }
 
 .cp-natural-range {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .cp-natural-names {
   font-size: 12px;
   color: var(--cp-text-muted);
+}
+
+.cp-natural-days {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cp-text-muted);
+  flex-shrink: 0;
 }
 </style>

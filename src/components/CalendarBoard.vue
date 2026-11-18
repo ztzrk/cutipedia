@@ -1,9 +1,8 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { useWindowSize } from '@vueuse/core'
-import { NCard, NSpace, NTag, NScrollbar } from 'naive-ui'
-import { CalendarDays } from 'lucide-vue-next'
+import { useElementSize } from '@vueuse/core'
+import { NScrollbar } from 'naive-ui'
 
 const props = defineProps({
   year: { type: Number, required: true },
@@ -11,22 +10,33 @@ const props = defineProps({
   selectedCutiDates: { type: Array, required: true },
   isDark: { type: Boolean, default: false },
   hasOfficialData: { type: Boolean, required: true },
+  focusedDate: { type: String, default: '' },
 })
 
 const calendarRef = ref(null)
-const { width } = useWindowSize()
+const vcalWrapRef = ref(null)
+const { width: wrapWidth } = useElementSize(vcalWrapRef)
 
-const calendarColumns = computed(() => (width.value >= 640 ? 2 : 1))
+const calendarColumns = computed(() => {
+  if (wrapWidth.value >= 800) return 3
+  if (wrapWidth.value >= 540) return 2
+  return 1
+})
 
 function toLocalDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d)
 }
 
-const initialPage = computed(() => ({
-  month: 1,
-  year: props.year,
-}))
+const initialPage = computed(() => {
+  if (props.focusedDate && /^\d{4}-\d{2}-\d{2}$/.test(props.focusedDate)) {
+    const [y, m] = props.focusedDate.split('-').map(Number)
+    if (y === props.year) {
+      return { month: m, year: y }
+    }
+  }
+  return { month: 1, year: props.year }
+})
 
 const minDate = computed(() => new Date(props.year, 0, 1))
 const maxDate = computed(() => new Date(props.year, 11, 31))
@@ -115,31 +125,30 @@ defineExpose({
 </script>
 
 <template>
-  <NCard class="cp-cal-card" :bordered="true" size="medium">
-    <template #header>
-      <NSpace align="center" :size="8">
-        <CalendarDays :size="18" />
-        <span>Kalender Interaktif {{ year }}</span>
-      </NSpace>
-    </template>
+  <section class="cp-panel cp-cal-panel" aria-label="Kalender hari libur">
+    <div class="cp-cal-head">
+      <div>
+        <div class="cp-section-kicker">Kalender Libur {{ year }}</div>
+        <h2 class="cp-cal-title cp-serif">Penanggalan Resmi &amp; Saran Cuti</h2>
+      </div>
 
-    <!-- Legenda warna sesuai plan -->
-    <div class="cp-legend">
-      <div class="cp-legend-item">
-        <span class="cp-swatch cp-swatch-red" />
-        <span>Libur Nasional</span>
-      </div>
-      <div class="cp-legend-item">
-        <span class="cp-swatch cp-swatch-yellow" />
-        <span>Cuti Bersama</span>
-      </div>
-      <div class="cp-legend-item">
-        <span class="cp-swatch cp-swatch-green" />
-        <span>Saran Cuti</span>
+      <div class="cp-legend">
+        <div class="cp-legend-item">
+          <span class="cp-swatch cp-swatch-red" />
+          <span>Libur Nasional</span>
+        </div>
+        <div class="cp-legend-item">
+          <span class="cp-swatch cp-swatch-yellow" />
+          <span>Cuti Bersama</span>
+        </div>
+        <div class="cp-legend-item">
+          <span class="cp-swatch cp-swatch-green" />
+          <span>Saran Cuti</span>
+        </div>
       </div>
     </div>
 
-    <div class="cp-vcal-wrap">
+    <div ref="vcalWrapRef" class="cp-vcal-wrap">
       <VCalendar
         ref="calendarRef"
         locale="id"
@@ -154,47 +163,64 @@ defineExpose({
       />
     </div>
 
-    <!-- Daftar singkat tanggal merah SKB -->
-    <div v-if="hasOfficialData && officialHolidays.length > 0" class="cp-holiday-list-wrap">
-      <div class="cp-holiday-list-title">
-        Daftar Tanggal Resmi SKB {{ year }} ({{ officialHolidays.length }})
+    <!-- Daftar tanggal resmi SKB -->
+    <div v-if="hasOfficialData && officialHolidays.length > 0" class="cp-holiday-table-wrap">
+      <div class="cp-holiday-table-head">
+        Daftar Tanggal Resmi SKB {{ year }} ({{ officialHolidays.length }} hari)
       </div>
-      <NScrollbar style="max-height: 220px">
-        <div class="cp-holiday-list">
-          <div
+      <NScrollbar style="max-height: 260px">
+        <div class="cp-holiday-table">
+          <button
             v-for="item in officialHolidays"
             :key="item.date"
+            type="button"
             class="cp-holiday-row"
             @click="moveToDate(item.date)"
           >
             <span class="cp-mono cp-holiday-date">{{ item.formattedDate }}</span>
             <span class="cp-holiday-name">{{ item.name }}</span>
-            <NTag
-              size="tiny"
-              :type="item.type === 'libur_nasional' ? 'error' : 'warning'"
-              :bordered="false"
+            <span
+              class="cp-holiday-kind"
+              :class="item.type === 'libur_nasional' ? 'is-red' : 'is-amber'"
             >
               {{ item.type === 'libur_nasional' ? 'Nasional' : 'Cuti Bersama' }}
-            </NTag>
-          </div>
+            </span>
+          </button>
         </div>
       </NScrollbar>
     </div>
-  </NCard>
+  </section>
 </template>
 
 <style scoped>
-.cp-cal-card {
-  border-radius: 14px;
+.cp-cal-panel {
+  padding: 18px 20px;
+}
+
+.cp-cal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--cp-border);
+  margin-bottom: 16px;
+}
+
+.cp-cal-title {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .cp-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-bottom: 14px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--cp-text-muted);
 }
 
@@ -205,9 +231,9 @@ defineExpose({
 }
 
 .cp-swatch {
-  width: 11px;
-  height: 11px;
-  border-radius: 999px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   display: inline-block;
 }
 
@@ -225,38 +251,42 @@ defineExpose({
 
 .cp-vcal-wrap {
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.cp-holiday-list-wrap {
-  margin-top: 16px;
-  padding-top: 14px;
+.cp-holiday-table-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid var(--cp-border);
 }
 
-.cp-holiday-list-title {
+.cp-holiday-table-head {
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 10px;
-  color: var(--cp-text);
 }
 
-.cp-holiday-list {
+.cp-holiday-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-right: 8px;
 }
 
 .cp-holiday-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--cp-border);
+  background: transparent;
+  font-family: var(--cp-font-sans);
+  text-align: left;
   display: grid;
-  grid-template-columns: 118px 1fr auto;
+  grid-template-columns: 124px 1fr auto;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  gap: 10px;
+  font-size: 12.5px;
+  padding: 8px 6px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  color: var(--cp-text);
 }
 
 .cp-holiday-row:hover {
@@ -268,10 +298,23 @@ defineExpose({
 }
 
 .cp-holiday-name {
-  color: var(--cp-text);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cp-holiday-kind {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cp-holiday-kind.is-red {
+  color: var(--cp-red);
+}
+
+.cp-holiday-kind.is-amber {
+  color: var(--cp-amber);
 }
 </style>

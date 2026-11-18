@@ -1,18 +1,14 @@
 <script setup>
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import { useStorage, useClipboard } from '@vueuse/core'
 import {
   NConfigProvider,
-  NLayout,
-  NLayoutHeader,
-  NLayoutContent,
-  NSpace,
   NButton,
-  NTag,
-  NCard,
+  NSelect,
   darkTheme,
 } from 'naive-ui'
-import { Calendar, Sun, Moon, Download, Share2, Check } from 'lucide-vue-next'
+import { ArrowLeft, Sun, Moon } from 'lucide-vue-next'
+import BrandLogo from '@/components/BrandLogo.vue'
 import holidaysData from '@/data/holidays.json'
 import {
   useCutiOptimizer,
@@ -32,6 +28,40 @@ import CalendarBoard from '@/components/CalendarBoard.vue'
 
 const availableYears = Object.keys(holidaysData).sort()
 const latestOfficialYear = Number(availableYears[availableYears.length - 1] || 2027)
+
+// Navigation state: 'planner' | 'calendar'
+const activePage = ref(
+  typeof window !== 'undefined' && window.location.hash === '#/kalender'
+    ? 'calendar'
+    : 'planner'
+)
+
+function navigateTo(page) {
+  activePage.value = page
+  if (typeof window !== 'undefined') {
+    const targetHash = page === 'calendar' ? '#/kalender' : ''
+    if (window.location.hash !== targetHash) {
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${window.location.search}${targetHash}`
+      )
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function handleHashChange() {
+  activePage.value = window.location.hash === '#/kalender' ? 'calendar' : 'planner'
+}
+
+onMounted(() => {
+  window.addEventListener('hashchange', handleHashChange)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('hashchange', handleHashChange)
+})
 
 // Persist user preferences in localStorage via VueUse
 const year = useStorage('cutipedia:year', latestOfficialYear)
@@ -61,19 +91,19 @@ watchEffect(() => {
 
 const themeOverrides = computed(() => ({
   common: {
-    fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    primaryColor: isDark.value ? '#22c55e' : '#15803d',
-    primaryColorHover: isDark.value ? '#4ade80' : '#16a34a',
-    primaryColorPressed: isDark.value ? '#16a34a' : '#166534',
-    primaryColorSuppl: isDark.value ? '#22c55e' : '#15803d',
-    borderRadius: '10px',
-    bodyColor: isDark.value ? '#101413' : '#f7f5f0',
-    cardColor: isDark.value ? '#171d1b' : '#ffffff',
+    fontFamily: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    primaryColor: isDark.value ? '#4d9e70' : '#1b5e3a',
+    primaryColorHover: isDark.value ? '#63b385' : '#237549',
+    primaryColorPressed: isDark.value ? '#3c855c' : '#14472c',
+    primaryColorSuppl: isDark.value ? '#4d9e70' : '#1b5e3a',
+    borderRadius: '4px',
+    bodyColor: isDark.value ? '#161513' : '#f5f1e8',
+    cardColor: isDark.value ? '#1e1c19' : '#fcfbf8',
+    borderColor: isDark.value ? '#332f29' : '#d8d0c1',
   },
 }))
 
 const {
-  result,
   days,
   allOpportunities,
   recommendedPlans,
@@ -138,6 +168,21 @@ const planMetrics = computed(() =>
   calculatePlanMetrics(days.value, new Set(selectedCutiDates.value))
 )
 
+const yearOptions = computed(() => {
+  const options = availableYears.map((y) => ({
+    label: `${y} — SKB Resmi`,
+    value: Number(y),
+  }))
+  const nextYear = latestOfficialYear + 1
+  if (!availableYears.map(Number).includes(nextYear)) {
+    options.push({
+      label: `${nextYear} — Belum Rilis`,
+      value: nextYear,
+    })
+  }
+  return options
+})
+
 function togglePlan(planId) {
   const current = [...selectedIds.value]
   const index = current.indexOf(planId)
@@ -179,104 +224,95 @@ async function handleCopyShareUrl() {
 }
 
 const calendarBoardRef = ref(null)
+const focusedCalendarDate = ref('')
 
 async function handleFocusDate(dateStr) {
+  focusedCalendarDate.value = dateStr
+  navigateTo('calendar')
+  await nextTick()
   await calendarBoardRef.value?.moveToDate(dateStr)
-  if (typeof window !== 'undefined' && window.innerWidth < 992) {
-    calendarBoardRef.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 }
 </script>
 
 <template>
   <NConfigProvider :theme="isDark ? darkTheme : null" :theme-overrides="themeOverrides">
-    <NLayout style="min-height: 100vh; background: transparent">
-      <NLayoutHeader bordered class="cp-header">
-        <div class="cp-header-inner">
-          <div class="cp-brand">
-            <div class="cp-logo-box">
-              <Calendar :size="20" />
-            </div>
+    <div class="cp-shell">
+      <header class="cp-masthead">
+        <div class="cp-masthead-inner">
+          <div class="cp-brand" role="button" tabindex="0" @click="navigateTo('planner')">
+            <BrandLogo :size="34" />
             <div>
-              <div class="cp-brand-title">CutiPedia</div>
-              <div class="cp-brand-sub">Optimasi Long Weekend SKB 3 Menteri</div>
+              <div class="cp-brand-title cp-serif">CutiPedia</div>
+              <div class="cp-brand-sub">Almanak Cuti &amp; Libur Nasional</div>
             </div>
           </div>
 
-          <NSpace align="center" :size="10">
-            <NTag v-if="result.sumber" size="small" :bordered="false" class="cp-hide-xs">
-              {{ result.sumber }}
-            </NTag>
-            <NButton
-              circle
-              secondary
+          <nav class="cp-nav" aria-label="Navigasi halaman">
+            <button
+              type="button"
+              class="cp-nav-link"
+              :class="{ 'is-active': activePage === 'planner' }"
+              @click="navigateTo('planner')"
+            >
+              Rekomendasi
+            </button>
+            <button
+              type="button"
+              class="cp-nav-link"
+              :class="{ 'is-active': activePage === 'calendar' }"
+              @click="navigateTo('calendar')"
+            >
+              Kalender Libur
+            </button>
+            <button
+              type="button"
+              class="cp-theme-btn"
               :aria-label="isDark ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'"
               @click="isDark = !isDark"
             >
-              <template #icon>
-                <Sun v-if="isDark" :size="18" />
-                <Moon v-else :size="18" />
-              </template>
-            </NButton>
-          </NSpace>
+              <Sun v-if="isDark" :size="16" />
+              <Moon v-else :size="16" />
+            </button>
+          </nav>
         </div>
-      </NLayoutHeader>
+      </header>
 
-      <NLayoutContent style="background: transparent">
-        <main class="cp-container">
-          <NSpace vertical :size="18">
-            <FilterBar
-              v-model:year="year"
-              v-model:cuti-quota="cutiQuota"
-              v-model:work-pattern="workPattern"
-              v-model:employee-status="employeeStatus"
-              :available-years="availableYears"
-              :stats="stats"
-              :has-official-data="hasOfficialData"
-            />
+      <main class="cp-container">
+        <!-- Halaman 1: Planner & Rekomendasi Cuti -->
+        <div v-if="activePage === 'planner'" class="cp-planner-page">
+          <div class="cp-intro">
+            <h1 class="cp-intro-title cp-serif">Susun Rencana Long Weekend {{ year }}</h1>
+            <p class="cp-intro-desc">
+              Atur profil kerja dan sisa jatah cuti di sidebar kanan untuk melihat hari kejepit
+              nasional paling efisien berdasarkan SKB 3 Menteri.
+            </p>
+          </div>
 
-            <SummaryStats
-              :stats="stats"
-              :selected-plans-count="selectedPlans.length"
-              :selected-cuti-used="selectedCutiUsed"
-              :plan-metrics="planMetrics"
-              :has-official-data="hasOfficialData"
-            />
+          <div class="cp-planner-layout">
+            <aside class="cp-planner-sidebar" aria-label="Panel pengaturan dan ringkasan">
+              <FilterBar
+                v-model:year="year"
+                v-model:cuti-quota="cutiQuota"
+                v-model:work-pattern="workPattern"
+                v-model:employee-status="employeeStatus"
+                :available-years="availableYears"
+                :stats="stats"
+                :has-official-data="hasOfficialData"
+              />
 
-            <!-- Export & Share bar -->
-            <NCard size="small" class="cp-export-card">
-              <div class="cp-export-bar">
-                <div class="cp-export-info">
-                  <strong>Ekspor &amp; Bagikan Rencana</strong>
-                  <span class="cp-export-hint">
-                    Unduh file <code>.ics</code> untuk Google/Apple/Outlook Calendar atau salin tautan rencana Anda.
-                  </span>
-                </div>
-                <NSpace :size="10" wrap>
-                  <NButton
-                    type="primary"
-                    :disabled="!hasOfficialData || selectedPlans.length === 0"
-                    @click="handleDownloadIcs"
-                  >
-                    <template #icon><Download :size="16" /></template>
-                    Unduh .ics ({{ selectedCutiUsed }} hari)
-                  </NButton>
-                  <NButton
-                    secondary
-                    :type="copied ? 'success' : 'default'"
-                    @click="handleCopyShareUrl"
-                  >
-                    <template #icon>
-                      <Check v-if="copied" :size="16" />
-                      <Share2 v-else :size="16" />
-                    </template>
-                    {{ copied ? 'Link Tersalin!' : 'Salin Link Rencana' }}
-                  </NButton>
-                </NSpace>
-              </div>
-            </NCard>
+              <SummaryStats
+                :stats="stats"
+                :selected-plans-count="selectedPlans.length"
+                :selected-cuti-used="selectedCutiUsed"
+                :plan-metrics="planMetrics"
+                :has-official-data="hasOfficialData"
+                :copied="copied"
+                @download-ics="handleDownloadIcs"
+                @copy-link="handleCopyShareUrl"
+              />
+            </aside>
 
-            <div class="cp-main-grid">
+            <div class="cp-planner-main">
               <RecommendationList
                 :year="year"
                 :has-official-data="hasOfficialData"
@@ -292,80 +328,63 @@ async function handleFocusDate(dateStr) {
                 @focus-date="handleFocusDate"
                 @switch-year="year = $event"
               />
+            </div>
+          </div>
+        </div>
 
-              <CalendarBoard
-                ref="calendarBoardRef"
-                :year="year"
-                :days="days"
-                :selected-cuti-dates="selectedCutiDates"
-                :is-dark="isDark"
-                :has-official-data="hasOfficialData"
+        <!-- Halaman 2: Kalender Libur -->
+        <div v-else class="cp-flow-stack">
+          <div class="cp-cal-topbar">
+            <NButton secondary size="small" @click="navigateTo('planner')">
+              <template #icon><ArrowLeft :size="14" /></template>
+              Kembali ke Rekomendasi
+            </NButton>
+
+            <div class="cp-cal-topbar-right">
+              <span class="cp-mono cp-cal-count">{{ selectedCutiUsed }} hari saran cuti</span>
+              <NSelect
+                v-model:value="year"
+                :options="yearOptions"
+                size="small"
+                style="width: 175px"
               />
             </div>
-          </NSpace>
-        </main>
-      </NLayoutContent>
-    </NLayout>
+          </div>
+
+          <CalendarBoard
+            ref="calendarBoardRef"
+            :year="year"
+            :days="days"
+            :selected-cuti-dates="selectedCutiDates"
+            :is-dark="isDark"
+            :has-official-data="hasOfficialData"
+            :focused-date="focusedCalendarDate"
+          />
+        </div>
+
+        <footer class="cp-footer">
+          <span>Sumber data: SKB 3 Menteri (Kemenko PMK)</span>
+          <span>Berjalan 100% di browser tanpa server</span>
+        </footer>
+      </main>
+    </div>
   </NConfigProvider>
 </template>
 
 <style scoped>
-.cp-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  backdrop-filter: blur(10px);
+.cp-shell {
+  min-height: 100vh;
 }
 
-.cp-header-inner {
-  max-width: 1200px;
+.cp-masthead {
+  background: var(--cp-surface);
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.cp-masthead-inner {
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-@media (min-width: 768px) {
-  .cp-header-inner {
-    padding: 14px 24px;
-  }
-}
-
-.cp-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cp-logo-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--cp-accent-soft);
-  color: var(--cp-accent);
-  display: grid;
-  place-items: center;
-}
-
-.cp-brand-title {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-
-.cp-brand-sub {
-  font-size: 12px;
-  color: var(--cp-text-muted);
-}
-
-.cp-export-card {
-  border-radius: 12px;
-}
-
-.cp-export-bar {
+  padding: 14px 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -373,21 +392,160 @@ async function handleFocusDate(dateStr) {
   gap: 12px;
 }
 
-.cp-export-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 13px;
+@media (min-width: 768px) {
+  .cp-masthead-inner {
+    padding: 16px 24px;
+  }
 }
 
-.cp-export-hint {
+.cp-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+}
+
+.cp-brand-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.cp-brand-sub {
   font-size: 12px;
   color: var(--cp-text-muted);
 }
 
-@media (max-width: 540px) {
-  .cp-hide-xs {
-    display: none;
+.cp-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.cp-nav-link {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 6px 0;
+  font-family: var(--cp-font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.cp-nav-link:hover {
+  color: var(--cp-text);
+}
+
+.cp-nav-link.is-active {
+  color: var(--cp-text);
+  border-bottom-color: var(--cp-red);
+}
+
+.cp-theme-btn {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.cp-theme-btn:hover {
+  background: var(--cp-surface-muted);
+}
+
+.cp-intro-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.cp-intro-desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--cp-text-muted);
+  max-width: 62ch;
+}
+
+.cp-planner-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cp-planner-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.cp-planner-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cp-planner-main {
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .cp-planner-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 24px;
   }
+
+  .cp-planner-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cp-planner-sidebar {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 20px;
+  }
+}
+
+.cp-cal-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-cal-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-cal-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cp-accent);
+}
+
+.cp-footer {
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cp-border);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cp-text-muted);
 }
 </style>

@@ -1,28 +1,37 @@
 :root {
-  --cp-font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --cp-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --cp-bg: #f7f5f0;
-  --cp-surface: #ffffff;
-  --cp-surface-muted: #f0ece3;
-  --cp-border: rgba(24, 34, 29, 0.1);
-  --cp-text: #16201b;
-  --cp-text-muted: #5a665f;
-  --cp-accent: #15803d;
-  --cp-accent-soft: rgba(21, 128, 61, 0.1);
-  --cp-red: #dc2626;
-  --cp-amber: #d97706;
-  --cp-green: #16a34a;
+  --cp-font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cp-font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --cp-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --cp-bg: #f5f1e8;
+  --cp-surface: #fcfbf8;
+  --cp-surface-muted: #ece6d9;
+  --cp-border: #d8d0c1;
+  --cp-border-strong: #bfb5a2;
+  --cp-text: #1c1b18;
+  --cp-text-muted: #625d53;
+
+  --cp-accent: #1b5e3a;
+  --cp-accent-soft: #e7f0ea;
+  --cp-red: #b91c1c;
+  --cp-amber: #b45309;
+  --cp-green: #1b5e3a;
 }
 
 html.dark {
-  --cp-bg: #101413;
-  --cp-surface: #171d1b;
-  --cp-surface-muted: #1f2724;
-  --cp-border: rgba(235, 245, 239, 0.1);
-  --cp-text: #eef3ef;
-  --cp-text-muted: #98a69e;
-  --cp-accent: #22c55e;
-  --cp-accent-soft: rgba(34, 197, 94, 0.14);
+  --cp-bg: #161513;
+  --cp-surface: #1e1c19;
+  --cp-surface-muted: #272420;
+  --cp-border: #332f29;
+  --cp-border-strong: #4a443b;
+  --cp-text: #ede8df;
+  --cp-text-muted: #a1998c;
+
+  --cp-accent: #4d9e70;
+  --cp-accent-soft: rgba(77, 158, 112, 0.14);
+  --cp-red: #ef4444;
+  --cp-amber: #eab308;
+  --cp-green: #4d9e70;
 }
 
 * {
@@ -34,8 +43,12 @@ body {
   font-family: var(--cp-font-sans);
   background-color: var(--cp-bg);
   color: var(--cp-text);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.cp-serif {
+  font-family: var(--cp-font-serif);
 }
 
 .cp-mono {
@@ -44,43 +57,67 @@ body {
 }
 
 .cp-container {
-  max-width: 1200px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 20px 16px 48px;
+  padding: 24px 16px 64px;
 }
 
 @media (min-width: 768px) {
   .cp-container {
-    padding: 28px 24px 64px;
+    padding: 32px 24px 72px;
   }
 }
 
-.cp-main-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  align-items: start;
+.cp-flow-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-@media (min-width: 992px) {
-  .cp-main-grid {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    gap: 24px;
-  }
+.cp-panel {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 6px;
 }
 
-/* Harmonize VCalendar with CutiPedia theme */
+.cp-section-kicker {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cp-text-muted);
+}
+
+/* Harmonize VCalendar with print-almanac theme & prevent container overflow */
 .vc-container {
   font-family: var(--cp-font-sans) !important;
-  border-color: var(--cp-border) !important;
+  border: 1px solid var(--cp-border) !important;
   background-color: var(--cp-surface) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden;
+}
+
+.vc-pane-container,
+.vc-pane-layout {
   width: 100%;
+  min-width: 0;
+}
+
+.vc-pane {
+  min-width: 0 !important;
+}
+
+.vc-weeks {
+  min-width: 0 !important;
 }
 
 .vc-dark {
-  --vc-bg: #171d1b;
-  --vc-border: rgba(235, 245, 239, 0.1);
-  --vc-header-title-color: #eef3ef;
-  --vc-weekday-color: #98a69e;
+  --vc-bg: #1e1c19;
+  --vc-border: #332f29;
+  --vc-header-title-color: #ede8df;
+  --vc-weekday-color: #a1998c;
 }
