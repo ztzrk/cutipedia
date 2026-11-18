@@ -17,9 +17,11 @@ import {
   Circle,
   RotateCcw,
   CalendarSearch,
+  CalendarPlus,
   ExternalLink,
   Sun,
 } from 'lucide-vue-next'
+import { buildGoogleCalendarUrl } from '@/composables/useCalendarExport'
 
 const props = defineProps({
   year: { type: Number, required: true },
@@ -213,15 +215,29 @@ function ratioTagType(ratio) {
               </NTag>
             </NSpace>
 
-            <NButton
-              size="tiny"
-              quaternary
-              type="primary"
-              @click.stop="emit('focus-date', opp.cutiDates[0])"
-            >
-              <template #icon><CalendarSearch :size="13" /></template>
-              Lihat Kalender
-            </NButton>
+            <NSpace :size="6" align="center">
+              <NButton
+                size="tiny"
+                quaternary
+                tag="a"
+                :href="buildGoogleCalendarUrl(opp)"
+                target="_blank"
+                rel="noopener noreferrer"
+                @click.stop
+              >
+                <template #icon><CalendarPlus :size="13" /></template>
+                Google Calendar
+              </NButton>
+              <NButton
+                size="tiny"
+                quaternary
+                type="primary"
+                @click.stop="emit('focus-date', opp.cutiDates[0])"
+              >
+                <template #icon><CalendarSearch :size="13" /></template>
+                Lihat Kalender
+              </NButton>
+            </NSpace>
           </div>
         </div>
       </div>

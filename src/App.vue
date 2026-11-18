@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch, watchEffect } from 'vue'
-import { useStorage } from '@vueuse/core'
+import { useStorage, useClipboard } from '@vueuse/core'
 import {
   NConfigProvider,
   NLayout,
@@ -9,9 +9,10 @@ import {
   NSpace,
   NButton,
   NTag,
+  NCard,
   darkTheme,
 } from 'naive-ui'
-import { Calendar, Sun, Moon } from 'lucide-vue-next'
+import { Calendar, Sun, Moon, Download, Share2, Check } from 'lucide-vue-next'
 import holidaysData from '@/data/holidays.json'
 import {
   useCutiOptimizer,
@@ -19,6 +20,11 @@ import {
   WORK_PATTERNS,
   EMPLOYEE_STATUSES,
 } from '@/composables/useCutiOptimizer'
+import {
+  downloadIcsFile,
+  buildShareUrl,
+  parseShareParams,
+} from '@/composables/useCalendarExport'
 import FilterBar from '@/components/FilterBar.vue'
 import SummaryStats from '@/components/SummaryStats.vue'
 import RecommendationList from '@/components/RecommendationList.vue'
@@ -33,6 +39,19 @@ const cutiQuota = useStorage('cutipedia:quota', 12)
 const workPattern = useStorage('cutipedia:pattern', WORK_PATTERNS.FIVE_DAYS)
 const employeeStatus = useStorage('cutipedia:status', EMPLOYEE_STATUSES.SWASTA_POTONG)
 const isDark = useStorage('cutipedia:dark', false)
+
+// Hydrate state from shared URL parameters (?year=...&cuti=...) if present
+const sharedParams =
+  typeof window !== 'undefined' ? parseShareParams(window.location.search) : null
+
+if (sharedParams) {
+  if (sharedParams.year !== undefined) year.value = sharedParams.year
+  if (sharedParams.cutiQuota !== undefined) cutiQuota.value = sharedParams.cutiQuota
+  if (sharedParams.workPattern !== undefined) workPattern.value = sharedParams.workPattern
+  if (sharedParams.employeeStatus !== undefined) {
+    employeeStatus.value = sharedParams.employeeStatus
+  }
+}
 
 watchEffect(() => {
   if (typeof document !== 'undefined') {
@@ -70,6 +89,20 @@ const {
 
 // Manual customization state (null = follow optimal auto-selection)
 const customSelectedIds = ref(null)
+
+if (sharedParams && Array.isArray(sharedParams.cutiDates)) {
+  const sharedDateSet = new Set(sharedParams.cutiDates)
+  if (sharedDateSet.size === 0) {
+    customSelectedIds.value = []
+  } else {
+    const matchedIds = allOpportunities.value
+      .filter((opp) => opp.cutiDates.every((d) => sharedDateSet.has(d)))
+      .map((opp) => opp.id)
+    if (matchedIds.length > 0) {
+      customSelectedIds.value = matchedIds
+    }
+  }
+}
 
 watch([year, cutiQuota, workPattern, employeeStatus], () => {
   customSelectedIds.value = null
@@ -124,6 +157,25 @@ function togglePlan(planId) {
 
 function resetOptimal() {
   customSelectedIds.value = null
+}
+
+// Export & Share actions
+const { copy, copied } = useClipboard({ copiedDuring: 2500 })
+
+function handleDownloadIcs() {
+  if (selectedPlans.value.length === 0) return
+  downloadIcsFile(selectedPlans.value, year.value)
+}
+
+async function handleCopyShareUrl() {
+  const url = buildShareUrl({
+    year: year.value,
+    cutiQuota: cutiQuota.value,
+    workPattern: workPattern.value,
+    employeeStatus: employeeStatus.value,
+    selectedCutiDates: selectedCutiDates.value,
+  })
+  await copy(url)
 }
 
 const calendarBoardRef = ref(null)
@@ -190,6 +242,39 @@ async function handleFocusDate(dateStr) {
               :plan-metrics="planMetrics"
               :has-official-data="hasOfficialData"
             />
+
+            <!-- Export & Share bar -->
+            <NCard size="small" class="cp-export-card">
+              <div class="cp-export-bar">
+                <div class="cp-export-info">
+                  <strong>Ekspor &amp; Bagikan Rencana</strong>
+                  <span class="cp-export-hint">
+                    Unduh file <code>.ics</code> untuk Google/Apple/Outlook Calendar atau salin tautan rencana Anda.
+                  </span>
+                </div>
+                <NSpace :size="10" wrap>
+                  <NButton
+                    type="primary"
+                    :disabled="!hasOfficialData || selectedPlans.length === 0"
+                    @click="handleDownloadIcs"
+                  >
+                    <template #icon><Download :size="16" /></template>
+                    Unduh .ics ({{ selectedCutiUsed }} hari)
+                  </NButton>
+                  <NButton
+                    secondary
+                    :type="copied ? 'success' : 'default'"
+                    @click="handleCopyShareUrl"
+                  >
+                    <template #icon>
+                      <Check v-if="copied" :size="16" />
+                      <Share2 v-else :size="16" />
+                    </template>
+                    {{ copied ? 'Link Tersalin!' : 'Salin Link Rencana' }}
+                  </NButton>
+                </NSpace>
+              </div>
+            </NCard>
 
             <div class="cp-main-grid">
               <RecommendationList
@@ -272,6 +357,30 @@ async function handleFocusDate(dateStr) {
 }
 
 .cp-brand-sub {
+  font-size: 12px;
+  color: var(--cp-text-muted);
+}
+
+.cp-export-card {
+  border-radius: 12px;
+}
+
+.cp-export-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-export-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.cp-export-hint {
   font-size: 12px;
   color: var(--cp-text-muted);
 }
