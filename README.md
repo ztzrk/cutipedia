@@ -29,9 +29,10 @@ npm run build # Menghasilkan bundle statis di folder dist/
 2. Tambahkan objek tahun baru ke `src/data/holidays.json` dengan memisahkan `libur_nasional` dan `cuti_bersama`.
 3. Jalankan `npm test` dan `npm run build` sebelum `git commit` dan `git push`.
 
-## Deploy Statis Gratis
+## CI/CD & Deploy ke Vercel
 
-Proyek ini menghasilkan file statis murni di `dist/` sehingga siap di-deploy ke **Cloudflare Pages**, **Vercel**, atau **GitHub Pages**:
-
-- **Build command:** `npm run build`
-- **Output directory:** `dist`
+- **GitHub Actions CI:** Setiap `push` dan `pull_request` ke branch `main` otomatis menjalankan `npm ci`, `npm test`, dan `npm run build` melalui [ci.yml](.github/workflows/ci.yml).
+- **Deploy via Vercel:**
+  1. Buka dashboard [Vercel](https://vercel.com/new) dan impor repositori GitHub `ztzrk/cutipedia`.
+  2. Vercel otomatis membaca konfigurasi Vite dari [vercel.json](vercel.json) (`npm run build` → `dist`).
+  3. Setiap `git push` ke `main` akan otomatis ter-deploy ke produksi (dan PR mendapatkan *preview deployment*).
